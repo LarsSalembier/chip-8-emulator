@@ -1,44 +1,54 @@
 extern crate sdl2;
 
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use std::time::Duration;
-
 pub fn main() {
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
+    let sdl_context = sdl2::init().expect("Failed to initialize SDL");
+
+    let video_subsystem = sdl_context
+        .video()
+        .expect("Failed to initialize video subsystem");
 
     let window = video_subsystem
-        .window("rust-sdl2 demo", 800, 600)
+        .window("CHIP-8", 1024, 512)
         .position_centered()
         .build()
-        .unwrap();
+        .expect("Failed to create window");
 
-    let mut canvas = window.into_canvas().build().unwrap();
+    let mut canvas = window
+        .into_canvas()
+        .build()
+        .expect("Failed to create canvas");
 
-    canvas.set_draw_color(Color::RGB(0, 255, 255));
-    canvas.clear();
-    canvas.present();
-    let mut event_pump = sdl_context.event_pump().unwrap();
-    let mut i = 0;
+    let mut event_pump = sdl_context
+        .event_pump()
+        .expect("Failed to get SDL event pump");
+
+    let texture_creator = canvas.texture_creator();
+    let texture = texture_creator
+        .create_texture_streaming(sdl2::pixels::PixelFormatEnum::RGBA8888, 64, 32)
+        .expect("Failed to create texture");
+
     'running: loop {
-        i = (i + 1) % 255;
-        canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
-        canvas.clear();
+        // todo: emulator cycle
+
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
+                sdl2::event::Event::Quit { .. }
+                | sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::Escape),
                     ..
                 } => break 'running,
                 _ => {}
             }
         }
-        // The rest of the game loop goes here...
+
+        canvas.clear();
+
+        // TODO: build a texture from the chip-8 display buffer
+
+        canvas
+            .copy(&texture, None, None)
+            .expect("Failed to copy texture to canvas");
 
         canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
