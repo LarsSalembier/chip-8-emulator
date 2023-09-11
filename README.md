@@ -17,13 +17,13 @@ This is a Chip-8 emulator written in Rust that allows you to play classic Chip-8
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/your-username/your-chip8-emulator.git
+   git clone https://github.com/larssalembier/chip-8-emulator.git
 2. **Build the Emulator:**
 
    Navigate to the project directory and build the emulator using Cargo:
 
    ```bash
-   cd your-chip8-emulator
+   cd chip-8-emulator
    cargo build --release
    ```
 
