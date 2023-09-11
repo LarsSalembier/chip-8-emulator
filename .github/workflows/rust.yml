@@ -69,9 +69,6 @@ jobs:
 
       - name: Build
         run: |
-          # Set the environment variables
-          $env:LIB = "$env:SDL2_LIB_PATH;$env:LIB"
-          $env:INCLUDE = "$env:SDL2_INCLUDE_PATH;$env:INCLUDE"
           cargo build --release
 
       - name: Run tests

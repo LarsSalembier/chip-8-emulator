@@ -10,3 +10,6 @@ sdl2 = '0.35.2'
 
 [dev-dependencies]
 rustfmt = "0.10.0"
+
+[build-dependencies]
+pkg-config = "0.3.27"
