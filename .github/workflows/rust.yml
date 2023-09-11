@@ -3,41 +3,66 @@ name: Rust Chip-8 Interpreter
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
-    runs-on: windows-latest
+  format:
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        components: rustfmt
+        override: true
+    - name: Format Rust code
+      run: |
+        cargo fmt --all -- --check
 
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        components: clippy
+        override: true
+    - name: Lint Rust code
+      run: |
+        cargo clippy -- -D warnings
+
+  build-test-run:
+    needs: [format, lint]
+    runs-on: windows-latest  # Use a Windows runner
+
+    steps:
+    - uses: actions/checkout@v3
     - name: Set up MSYS2
       run: |
         choco install msys2 --params '"/NoUpdate /InstallDir:C:\msys64"'
-        RefreshEnv.cmd
-        pacman -Syu --noconfirm
-        pacman -S mingw-w64-x86_64-SDL2 --noconfirm
-        pacman -S mingw-w64-x86_64-gcc --noconfirm
-
+    - name: Install SDL2 and GCC with MSYS2
+      run: |
+        C:\msys64\usr\bin\bash -lc "pacman -Syu --noconfirm"
+        C:\msys64\usr\bin\bash -lc "pacman -S mingw-w64-x86_64-SDL2 --noconfirm"
+        C:\msys64\usr\bin\bash -lc "pacman -S mingw-w64-x86_64-gcc --noconfirm"
     - name: Build
       run: cargo build --release
-
     - name: Run tests
       run: cargo test --release
-
     - name: Install SDL2.dll
       run: |
-        cp ./SDL2.dll target/release
-
+        cp SDL2.dll target/release
     # - name: Run the emulator
     #   run: |
     #     cd target/release
     #     # Replace 'your-rom.ch8' with the path to your Chip-8 ROM file.
-    #     ./chip-8-emulator.exe your-rom.ch8
-
+    #     ./your-chip8-emulator.exe your-rom.ch8
