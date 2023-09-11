@@ -2,7 +2,7 @@ name: Rust Chip-8 Interpreter
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,55 +12,75 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Setup Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        components: rustfmt
-        override: true
-    - name: Format Rust code
-      run: |
-        cargo fmt --all -- --check
+      - uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt
+          override: true
+
+      - name: Format Rust code
+        run: |
+          cargo fmt --all -- --check
 
   lint:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v3
-    - name: Setup Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        components: clippy
-        override: true
-    - name: Lint Rust code
-      run: |
-        cargo clippy -- -D warnings
+      - uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+          override: true
+
+      - name: Lint Rust code
+        run: |
+          cargo clippy -- -D warnings
 
   build-test-run:
     needs: [format, lint]
-    runs-on: windows-latest  # Use a Windows runner
+    runs-on: windows-latest # Use a Windows runner
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up MSYS2
-      run: |
-        choco install msys2 --params '"/NoUpdate /InstallDir:C:\msys64"'
-    - name: Install SDL2 and GCC with MSYS2
-      run: |
-        C:\msys64\usr\bin\bash -lc "pacman -Syu --noconfirm"
-        C:\msys64\usr\bin\bash -lc "pacman -S mingw-w64-x86_64-SDL2 --noconfirm"
-        C:\msys64\usr\bin\bash -lc "pacman -S mingw-w64-x86_64-gcc --noconfirm"
-    - name: Build
-      run: cargo build --release
-    - name: Run tests
-      run: cargo test --release
-    - name: Install SDL2.dll
-      run: |
-        cp SDL2.dll target/release
+      - uses: actions/checkout@v3
+
+      - name: Set up MSYS2
+        run: |
+          choco install msys2 --params '"/NoUpdate /InstallDir:C:\msys64"'
+
+      - name: Install SDL2 and GCC with MSYS2
+        run: |
+          C:\msys64\usr\bin\bash -lc "pacman -Syu --noconfirm"
+          C:\msys64\usr\bin\bash -lc "pacman -S mingw-w64-x86_64-SDL2 --noconfirm"
+          C:\msys64\usr\bin\bash -lc "pacman -S mingw-w64-x86_64-gcc --noconfirm"
+
+      - name: Set up MSYS2 paths for SDL2
+        run: |
+          echo "MSYS2_PATH=C:\msys64\mingw64" >> $GITHUB_ENV
+          echo "SDL2_INCLUDE_PATH=$MSYS2_PATH/include/SDL2" >> $GITHUB_ENV
+          echo "SDL2_LIB_PATH=$MSYS2_PATH/lib" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
+          # Set the environment variables
+          $env:LIB = "$env:SDL2_LIB_PATH;$env:LIB"
+          $env:INCLUDE = "$env:SDL2_INCLUDE_PATH;$env:INCLUDE"
+          cargo build --release
+
+      - name: Run tests
+        run: cargo test --release
+
+      - name: Install SDL2.dll
+        run: |
+          cp SDL2.dll target/release
+
     # - name: Run the emulator
     #   run: |
     #     cd target/release
