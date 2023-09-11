@@ -41,10 +41,12 @@ This is a Chip-8 emulator written in Rust that allows you to play classic Chip-8
 
    The emulator uses the following keyboard mapping for Chip-8 keys:
 
+   ```
    1 2 3 4
    Q W E R
    A S D F
    Z X C V
+   ```
 
 5. **Quit the emulator:**
 
