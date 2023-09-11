@@ -54,11 +54,11 @@ This is a Chip-8 emulator written in Rust that allows you to play classic Chip-8
 
 ## References
 
-- ![Chip-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
+- [Chip-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
 
 ## License
 
-This project is licensed under the ![MIT License](/LICENSE). You are free to use, modify, and distribute this code, but you must provide proper attribution to the original author (Lars Salembier) in your derivative works. See the ![LICENSE](/LICENSE) file for more details.
+This project is licensed under the [MIT License](/LICENSE). You are free to use, modify, and distribute this code, but you must provide proper attribution to the original author (Lars Salembier) in your derivative works. See the [LICENSE](/LICENSE) file for more details.
 
 ## Acknowledgments
 
