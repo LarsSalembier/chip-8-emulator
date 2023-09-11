@@ -1,0 +1,43 @@
+name: Rust Chip-8 Interpreter
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up MSYS2
+      run: |
+        choco install msys2 --params '"/NoUpdate /InstallDir:C:\msys64"'
+        RefreshEnv.cmd
+        pacman -Syu --noconfirm
+        pacman -S mingw-w64-x86_64-SDL2 --noconfirm
+        pacman -S mingw-w64-x86_64-gcc --noconfirm
+
+    - name: Build
+      run: cargo build --release
+
+    - name: Run tests
+      run: cargo test --release
+
+    - name: Install SDL2.dll
+      run: |
+        cp ./SDL2.dll target/release
+
+    # - name: Run the emulator
+    #   run: |
+    #     cd target/release
+    #     # Replace 'your-rom.ch8' with the path to your Chip-8 ROM file.
+    #     ./chip-8-emulator.exe your-rom.ch8
+
