@@ -222,7 +222,7 @@ impl Cpu {
             }
             Opcode::LoadRegisters { vx } => {
                 self.registers[0..=vx as usize]
-                    .copy_from_slice(&self.memory.get_bytes(self.index, vx as u16)?);
+                    .copy_from_slice(&self.memory.get_bytes(self.index, vx as u16 + 1)?);
                 self.increment_program_counter(1);
             }
         }

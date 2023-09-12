@@ -53,13 +53,13 @@ impl Memory {
     }
 
     pub fn get_bytes(&self, addr: u16, n: u16) -> Result<Vec<u8>, MemoryError> {
-        if addr as usize + n as usize >= MEMORY_SIZE {
+        if addr as usize + n as usize > MEMORY_SIZE {
             return Err(MemoryError::OutOfBounds(addr));
         }
 
         let mut bytes = Vec::new();
 
-        for i in 0..=n {
+        for i in 0..n {
             bytes.push(self.get_byte(addr + i)?);
         }
 

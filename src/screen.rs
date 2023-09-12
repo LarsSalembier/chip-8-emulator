@@ -1,6 +1,5 @@
 pub const SCREEN_WIDTH: usize = 64;
 pub const SCREEN_HEIGHT: usize = 32;
-pub const SCREEN_SIZE: usize = SCREEN_WIDTH * SCREEN_HEIGHT;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Pixel {
@@ -29,16 +28,16 @@ impl Screen {
         for (i, byte) in sprite.iter().enumerate() {
             for j in 0..8 {
                 let pixel = (byte >> (7 - j)) & 0x1;
-                let x = (x + j) % SCREEN_WIDTH;
-                let y = (y + i) % SCREEN_HEIGHT;
+                let screen_x = (x + j) % SCREEN_WIDTH;
+                let screen_y = (y + i) % SCREEN_HEIGHT;
+
                 if pixel == 1 {
-                    if self.screen[y][x] == Pixel::On {
+                    if self.screen[screen_y][screen_x] == Pixel::On {
                         collision = true;
                     }
-                    self.screen[y][x] = if (self.screen[y][x] == Pixel::On) ^ true {
-                        Pixel::On
-                    } else {
-                        Pixel::Off
+                    self.screen[screen_y][screen_x] = match self.screen[screen_y][screen_x] {
+                        Pixel::On => Pixel::Off,
+                        Pixel::Off => Pixel::On,
                     };
                 }
             }
@@ -47,18 +46,18 @@ impl Screen {
         collision
     }
 
-    pub fn get_pixels(&self) -> [u8; SCREEN_SIZE] {
-        let mut pixels = [0; SCREEN_SIZE];
-
-        for (i, row) in self.screen.iter().enumerate() {
-            for (j, pixel) in row.iter().enumerate() {
-                pixels[i * SCREEN_WIDTH + j] = match pixel {
-                    Pixel::On => 0xFF,
-                    Pixel::Off => 0x00,
-                };
-            }
-        }
-
-        pixels
+    pub fn get_pixels(&self) -> Vec<u8> {
+        self.screen
+            .iter()
+            .flat_map(|row| {
+                row.iter().flat_map(|&pixel| {
+                    if pixel == Pixel::On {
+                        vec![255, 255, 255, 255]
+                    } else {
+                        vec![0, 0, 0, 0]
+                    }
+                })
+            })
+            .collect()
     }
 }
