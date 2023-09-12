@@ -3,8 +3,7 @@ use crate::memory::{Memory, MemoryError};
 use crate::opcode::Opcode;
 use crate::registers::Registers;
 use crate::screen::Screen;
-
-pub const STACK_SIZE: usize = 16;
+use crate::stack::Stack;
 
 pub const PROGRAM_START: u16 = 0x200;
 
@@ -18,8 +17,7 @@ pub struct Cpu {
     delay_timer: u8,
     sound_timer: u8,
 
-    stack: [u16; STACK_SIZE],
-    stack_pointer: u16,
+    stack: Stack,
 
     pub screen: Screen,
 
@@ -36,8 +34,7 @@ impl Cpu {
             program_counter: PROGRAM_START,
             delay_timer: 0,
             sound_timer: 0,
-            stack: [0; STACK_SIZE],
-            stack_pointer: 0,
+            stack: Stack::new(),
             screen: Screen::new(),
             keyboard_state: Keyboard::new(),
         };
@@ -69,16 +66,14 @@ impl Cpu {
                 self.increment_program_counter(1);
             }
             Opcode::ReturnFromSubroutine => {
-                self.stack_pointer -= 1;
-                self.program_counter = self.stack[self.stack_pointer as usize];
+                self.program_counter = self.stack.pop();
                 self.increment_program_counter(1);
             }
             Opcode::JumpToAddress { address } => {
                 self.program_counter = address;
             }
             Opcode::CallAddress { address } => {
-                self.stack[self.stack_pointer as usize] = self.program_counter;
-                self.stack_pointer += 1;
+                self.stack.push(self.program_counter);
                 self.program_counter = address;
             }
             Opcode::SkipIfEqual { register, byte } => {

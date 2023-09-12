@@ -7,6 +7,7 @@ mod memory;
 mod opcode;
 mod registers;
 mod screen;
+mod stack;
 
 pub fn main() {
     let filename = std::env::args()
