@@ -8,6 +8,7 @@ mod opcode;
 mod registers;
 mod screen;
 mod stack;
+mod timers;
 
 pub fn main() {
     let filename = std::env::args()
