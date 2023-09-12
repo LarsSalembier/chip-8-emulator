@@ -39,50 +39,48 @@ impl Memory {
     }
 
     fn load_fontset(&mut self) {
-        for i in 0..CHIP8_FONTSET.len() {
-            self.data[i] = CHIP8_FONTSET[i];
-        }
+        self.data[..CHIP8_FONTSET.len()].copy_from_slice(&CHIP8_FONTSET);
     }
 
-    pub fn get_byte(&self, addr: u16) -> Result<u8, MemoryError> {
-        if addr as usize >= MEMORY_SIZE {
-            return Err(MemoryError::OutOfBounds(addr));
+    pub fn get_byte(&self, address: u16) -> Result<u8, MemoryError> {
+        if address as usize >= MEMORY_SIZE {
+            return Err(MemoryError::OutOfBounds(address));
         }
 
-        Ok(self.data[addr as usize])
+        Ok(self.data[address as usize])
     }
 
-    pub fn get_bytes(&self, addr: u16, n: u16) -> Result<Vec<u8>, MemoryError> {
-        if addr as usize + n as usize > MEMORY_SIZE {
-            return Err(MemoryError::OutOfBounds(addr));
+    pub fn get_bytes(&self, address: u16, amount: u16) -> Result<Vec<u8>, MemoryError> {
+        if address as usize + amount as usize > MEMORY_SIZE {
+            return Err(MemoryError::OutOfBounds(address));
         }
 
         let mut bytes = Vec::new();
 
-        for i in 0..n {
-            bytes.push(self.get_byte(addr + i)?);
+        for i in 0..amount {
+            bytes.push(self.get_byte(address + i)?);
         }
 
         Ok(bytes)
     }
 
-    pub fn set_byte(&mut self, addr: u16, byte: u8) -> Result<(), MemoryError> {
-        if addr as usize >= MEMORY_SIZE {
-            return Err(MemoryError::OutOfBounds(addr));
+    pub fn set_byte(&mut self, address: u16, byte: u8) -> Result<(), MemoryError> {
+        if address as usize >= MEMORY_SIZE {
+            return Err(MemoryError::OutOfBounds(address));
         }
 
-        self.data[addr as usize] = byte;
+        self.data[address as usize] = byte;
 
         Ok(())
     }
 
-    pub fn set_bytes(&mut self, addr: u16, bytes: &[u8]) -> Result<(), MemoryError> {
-        if addr as usize + bytes.len() >= MEMORY_SIZE {
-            return Err(MemoryError::OutOfBounds(addr));
+    pub fn set_bytes(&mut self, address: u16, bytes: &[u8]) -> Result<(), MemoryError> {
+        if address as usize + bytes.len() >= MEMORY_SIZE {
+            return Err(MemoryError::OutOfBounds(address));
         }
 
         for (i, byte) in bytes.iter().enumerate() {
-            self.set_byte(addr + i as u16, *byte)?;
+            self.set_byte(address + i as u16, *byte)?;
         }
 
         Ok(())
@@ -90,20 +88,20 @@ impl Memory {
 
     pub fn store_binary_coded_decimal(
         &mut self,
-        addr: u16,
+        address: u16,
         decimal: u8,
     ) -> Result<(), MemoryError> {
-        if addr as usize + 2 >= MEMORY_SIZE {
-            return Err(MemoryError::OutOfBounds(addr));
+        if address as usize + 2 >= MEMORY_SIZE {
+            return Err(MemoryError::OutOfBounds(address));
         }
 
         let hundreds = decimal / 100;
         let tens = (decimal % 100) / 10;
         let ones = decimal % 10;
 
-        self.set_byte(addr, hundreds)?;
-        self.set_byte(addr + 1, tens)?;
-        self.set_byte(addr + 2, ones)?;
+        self.set_byte(address, hundreds)?;
+        self.set_byte(address + 1, tens)?;
+        self.set_byte(address + 2, ones)?;
 
         Ok(())
     }

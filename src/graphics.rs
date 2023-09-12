@@ -19,7 +19,7 @@ impl Graphics {
 
         let video_subsystem = match sdl_context.video() {
             Ok(video_subsystem) => video_subsystem,
-            Err(e) => return Err(e),
+            Err(error_message) => return Err(error_message),
         };
 
         let window = match video_subsystem
@@ -28,17 +28,17 @@ impl Graphics {
             .build()
         {
             Ok(window) => window,
-            Err(e) => return Err(e.to_string()),
+            Err(error) => return Err(error.to_string()),
         };
 
         let canvas = match window.into_canvas().build() {
             Ok(canvas) => canvas,
-            Err(e) => return Err(e.to_string()),
+            Err(error) => return Err(error.to_string()),
         };
 
         let event_pump = match sdl_context.event_pump() {
             Ok(event_pump) => event_pump,
-            Err(e) => return Err(e),
+            Err(error_message) => return Err(error_message),
         };
 
         let texture_creator = canvas.texture_creator();
@@ -74,21 +74,21 @@ impl Graphics {
             32,
         ) {
             Ok(texture) => texture,
-            Err(e) => return Err(e.to_string()),
+            Err(error) => return Err(error.to_string()),
         };
 
-        match texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
+        match texture.with_lock(None, |buffer: &mut [u8], _: usize| {
             for (i, pixel) in pixels.iter().enumerate() {
                 buffer[i] = *pixel;
             }
         }) {
             Ok(_) => {}
-            Err(e) => return Err(e),
+            Err(error_message) => return Err(error_message),
         }
 
         match self.canvas.copy(&texture, None, None) {
             Ok(_) => {}
-            Err(e) => return Err(e),
+            Err(error_message) => return Err(error_message),
         }
 
         self.canvas.present();

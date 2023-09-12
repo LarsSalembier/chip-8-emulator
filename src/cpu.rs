@@ -1,9 +1,9 @@
 use crate::keyboard::Keyboard;
 use crate::memory::{Memory, MemoryError};
 use crate::opcode::Opcode;
+use crate::registers::Registers;
 use crate::screen::Screen;
 
-pub const NUM_REGISTERS: usize = 16;
 pub const STACK_SIZE: usize = 16;
 
 pub const PROGRAM_START: u16 = 0x200;
@@ -11,7 +11,7 @@ pub const PROGRAM_START: u16 = 0x200;
 pub struct Cpu {
     opcode: u16,
     memory: Memory,
-    registers: [u8; NUM_REGISTERS],
+    registers: Registers,
     index: u16,
     program_counter: u16,
 
@@ -31,7 +31,7 @@ impl Cpu {
         let chip = Cpu {
             opcode: 0,
             memory: Memory::new(),
-            registers: [0; NUM_REGISTERS],
+            registers: Registers::new(),
             index: 0,
             program_counter: PROGRAM_START,
             delay_timer: 0,
@@ -73,156 +73,196 @@ impl Cpu {
                 self.program_counter = self.stack[self.stack_pointer as usize];
                 self.increment_program_counter(1);
             }
-            Opcode::JumpToAddr { addr } => {
-                self.program_counter = addr;
+            Opcode::JumpToAddress { address } => {
+                self.program_counter = address;
             }
-            Opcode::CallAddr { addr } => {
+            Opcode::CallAddress { address } => {
                 self.stack[self.stack_pointer as usize] = self.program_counter;
                 self.stack_pointer += 1;
-                self.program_counter = addr;
+                self.program_counter = address;
             }
-            Opcode::SkipIfEqual { vx, byte } => {
-                self.increment_program_counter(1 + (self.registers[vx as usize] == byte) as u16);
+            Opcode::SkipIfEqual { register, byte } => {
+                let x = self.registers.read(register as usize);
+
+                self.increment_program_counter(1 + (x == byte) as u16);
             }
-            Opcode::SkipIfNotEqual { vx, byte } => {
-                self.increment_program_counter(1 + (self.registers[vx as usize] != byte) as u16);
+            Opcode::SkipIfNotEqual { register, byte } => {
+                let x = self.registers.read(register as usize);
+
+                self.increment_program_counter(1 + (x != byte) as u16);
             }
-            Opcode::SkipIfVxEqualVy { vx, vy } => {
+            Opcode::SkipIfRegistersEqual {
+                register1,
+                register2,
+            } => {
+                let x = self.registers.read(register1 as usize);
+                let y = self.registers.read(register2 as usize);
+
+                self.increment_program_counter(1 + (x == y) as u16);
+            }
+            Opcode::SetRegisterToByte { register, byte } => {
+                self.registers.write(register as usize, byte);
+                self.increment_program_counter(1);
+            }
+            Opcode::AddByteToRegister { register, byte } => {
+                self.registers.add_byte(register as usize, byte);
+                self.increment_program_counter(1);
+            }
+            Opcode::SetRegisterToRegister {
+                register1,
+                register2,
+            } => {
+                self.registers.copy(register1 as usize, register2 as usize);
+                self.increment_program_counter(1);
+            }
+            Opcode::SetRegisterToRegisterOrRegister {
+                register1,
+                register2,
+            } => {
+                self.registers.or(register1 as usize, register2 as usize);
+                self.increment_program_counter(1);
+            }
+            Opcode::SetRegisterToRegisterAndRegister {
+                register1,
+                register2,
+            } => {
+                self.registers.and(register1 as usize, register2 as usize);
+                self.increment_program_counter(1);
+            }
+            Opcode::SetRegisterToRegisterXorRegister {
+                register1,
+                register2,
+            } => {
+                self.registers.xor(register1 as usize, register2 as usize);
+                self.increment_program_counter(1);
+            }
+            Opcode::AddRegisterToRegister {
+                register1,
+                register2,
+            } => {
+                self.registers
+                    .add_with_overflow(register1 as usize, register2 as usize);
+                self.increment_program_counter(1);
+            }
+            Opcode::SubtractRegisterFromRegister {
+                register1,
+                register2,
+            } => {
+                self.registers
+                    .subtract_with_overflow(register1 as usize, register2 as usize);
+                self.increment_program_counter(1);
+            }
+            Opcode::ShiftRegisterRight { register } => {
+                self.registers.shift_right(register as usize);
+                self.increment_program_counter(1);
+            }
+            Opcode::SetRegisterToRegisterMinusRegister {
+                register1,
+                register2,
+            } => {
+                self.registers
+                    .subtract_with_overflow_reversed(register1 as usize, register2 as usize);
+                self.increment_program_counter(1);
+            }
+            Opcode::ShiftRegisterLeft { register } => {
+                self.registers.shift_left(register as usize);
+                self.increment_program_counter(1);
+            }
+            Opcode::SkipIfRegisterNotEqualRegister {
+                register1,
+                register2,
+            } => {
+                let x = self.registers.read(register1 as usize);
+                let y = self.registers.read(register2 as usize);
+
+                self.increment_program_counter(1 + (x != y) as u16);
+            }
+            Opcode::SetIndexToAddress { address } => {
+                self.index = address;
+                self.increment_program_counter(1);
+            }
+            Opcode::JumpToAddressPlusRegister0 { address } => {
+                self.program_counter = address + self.registers.read(0) as u16;
+            }
+            Opcode::SetRegisterToRandAndByte { register, byte } => {
+                self.registers
+                    .write(register as usize, rand::random::<u8>() & byte);
+                self.increment_program_counter(1);
+            }
+            Opcode::DrawSprite {
+                register1,
+                register2,
+                size,
+            } => {
+                let x = self.registers.read(register1 as usize) as usize;
+                let y = self.registers.read(register2 as usize) as usize;
+
+                let sprite = self.memory.get_bytes(self.index, size as u16)?;
+
+                self.registers
+                    .write(0xF, self.screen.draw(x, y, &sprite) as u8);
+
+                self.increment_program_counter(1);
+            }
+            Opcode::SkipIfKeyPressed { key } => {
                 self.increment_program_counter(
-                    1 + (self.registers[vx as usize] == self.registers[vy as usize]) as u16,
+                    1 + (self.keyboard_state.is_key_pressed(key)) as u16,
                 );
             }
-            Opcode::SetVxToByte { vx, byte } => {
-                self.registers[vx as usize] = byte;
-                self.increment_program_counter(1);
-            }
-            Opcode::AddByteToVx { vx, byte } => {
-                self.registers[vx as usize] = self.registers[vx as usize].wrapping_add(byte);
-                self.increment_program_counter(1);
-            }
-            Opcode::SetVxToVy { vx, vy } => {
-                self.registers[vx as usize] = self.registers[vy as usize];
-                self.increment_program_counter(1);
-            }
-            Opcode::SetVxToVxOrVy { vx, vy } => {
-                self.registers[vx as usize] |= self.registers[vy as usize];
-                self.increment_program_counter(1);
-            }
-            Opcode::SetVxToVxAndVy { vx, vy } => {
-                self.registers[vx as usize] &= self.registers[vy as usize];
-                self.increment_program_counter(1);
-            }
-            Opcode::SetVxToVxXorVy { vx, vy } => {
-                self.registers[vx as usize] ^= self.registers[vy as usize];
-                self.increment_program_counter(1);
-            }
-            Opcode::AddVyToVx { vx, vy } => {
-                let (result, overflowed) =
-                    self.registers[vx as usize].overflowing_add(self.registers[vy as usize]);
-                self.registers[vx as usize] = result;
-                self.registers[0xF] = overflowed as u8;
-                self.increment_program_counter(1);
-            }
-            Opcode::SubtractVyFromVx { vx, vy } => {
-                let (result, overflowed) =
-                    self.registers[vx as usize].overflowing_sub(self.registers[vy as usize]);
-                self.registers[vx as usize] = result;
-                self.registers[0xF] = (!overflowed) as u8;
-                self.increment_program_counter(1);
-            }
-            Opcode::ShiftVxRight { vx } => {
-                self.registers[0xF] = self.registers[vx as usize] & 0x1;
-                self.registers[vx as usize] >>= 1;
-                self.increment_program_counter(1);
-            }
-            Opcode::SetVxToVyMinusVx { vx, vy } => {
-                let (result, overflowed) =
-                    self.registers[vy as usize].overflowing_sub(self.registers[vx as usize]);
-                self.registers[vx as usize] = result;
-                self.registers[0xF] = (!overflowed) as u8;
-                self.increment_program_counter(1);
-            }
-            Opcode::ShiftVxLeft { vx } => {
-                self.registers[0xF] = (self.registers[vx as usize] & 0x80) >> 7;
-                self.registers[vx as usize] <<= 1;
-                self.increment_program_counter(1);
-            }
-            Opcode::SkipIfVxNotEqualVy { vx, vy } => {
+            Opcode::SkipIfKeyNotPressed { key } => {
                 self.increment_program_counter(
-                    1 + (self.registers[vx as usize] != self.registers[vy as usize]) as u16,
+                    1 + (!self.keyboard_state.is_key_pressed(key)) as u16,
                 );
             }
-            Opcode::SetIndexToAddr { addr } => {
-                self.index = addr;
+            Opcode::SetRegisterToDelayTimer { register } => {
+                self.registers.write(register as usize, self.delay_timer);
                 self.increment_program_counter(1);
             }
-            Opcode::JumpToAddrPlusV0 { addr } => {
-                self.program_counter = addr + self.registers[0] as u16;
-            }
-            Opcode::SetVxToRandAndByte { vx, byte } => {
-                self.registers[vx as usize] = rand::random::<u8>() & byte;
-                self.increment_program_counter(1);
-            }
-            Opcode::DrawSprite { vx, vy, n } => {
-                let x = self.registers[vx as usize] as usize;
-                let y = self.registers[vy as usize] as usize;
-
-                self.registers[0xF] = 0;
-                let sprite = self.memory.get_bytes(self.index, n as u16)?;
-
-                self.registers[0xF] = self.screen.draw(x, y, &sprite) as u8;
-
-                self.increment_program_counter(1);
-            }
-            Opcode::SkipIfKeyPressed { vx } => {
-                self.increment_program_counter(1 + (self.keyboard_state.is_key_pressed(vx)) as u16);
-            }
-            Opcode::SkipIfKeyNotPressed { vx } => {
-                self.increment_program_counter(
-                    1 + (!self.keyboard_state.is_key_pressed(vx)) as u16,
-                );
-            }
-            Opcode::SetVxToDelayTimer { vx } => {
-                self.registers[vx as usize] = self.delay_timer;
-                self.increment_program_counter(1);
-            }
-            Opcode::WaitForKeyPress { vx } => {
+            Opcode::WaitForKeyPress { key } => {
                 let pressed_key = self.keyboard_state.get_pressed_key();
 
-                if let Some(key) = pressed_key {
-                    self.registers[vx as usize] = key;
+                if let Some(key_) = pressed_key {
+                    self.registers.write(key as usize, key_);
                     self.increment_program_counter(1);
                 }
             }
-            Opcode::SetDelayTimerToVx { vx } => {
-                self.delay_timer = self.registers[vx as usize];
+            Opcode::SetDelayTimerToRegister { register } => {
+                self.delay_timer = self.registers.read(register as usize);
                 self.increment_program_counter(1);
             }
-            Opcode::SetSoundTimerToVx { vx } => {
-                self.sound_timer = self.registers[vx as usize];
+            Opcode::SetSoundTimerToRegister { register } => {
+                self.sound_timer = self.registers.read(register as usize);
                 self.increment_program_counter(1);
             }
-            Opcode::AddVxToIndex { vx } => {
-                self.index += self.registers[vx as usize] as u16;
+            Opcode::AddRegisterToIndex { register } => {
+                self.index += self.registers.read(register as usize) as u16;
                 self.increment_program_counter(1);
             }
-            Opcode::SetIndexToSpriteLocation { vx } => {
-                self.index = self.registers[vx as usize] as u16 * 5;
+            Opcode::SetIndexToSpriteLocation { register } => {
+                self.index = self.registers.read(register as usize) as u16 * 5;
                 self.increment_program_counter(1);
             }
-            Opcode::StoreBCD { vx } => {
+            Opcode::StoreBCD { register } => {
+                let decimal = self.registers.read(register as usize);
+
                 self.memory
-                    .store_binary_coded_decimal(self.index, self.registers[vx as usize])?;
+                    .store_binary_coded_decimal(self.index, decimal)?;
                 self.increment_program_counter(1);
             }
-            Opcode::StoreRegisters { vx } => {
-                self.memory
-                    .set_bytes(self.index, &self.registers[0..=vx as usize])?;
+            Opcode::StoreRegisters { last_index } => {
+                let bytes = self.registers.read_multiple(0, last_index as usize + 1);
+
+                self.memory.set_bytes(self.index, bytes)?;
                 self.increment_program_counter(1);
             }
-            Opcode::LoadRegisters { vx } => {
-                self.registers[0..=vx as usize]
-                    .copy_from_slice(&self.memory.get_bytes(self.index, vx as u16 + 1)?);
+            Opcode::LoadRegisters {
+                last_memory_address,
+            } => {
+                let bytes = self
+                    .memory
+                    .get_bytes(self.index, last_memory_address as u16 + 1)?;
+
+                self.registers.write_multiple(0, &bytes);
                 self.increment_program_counter(1);
             }
         }

@@ -5,6 +5,7 @@ mod graphics;
 mod keyboard;
 mod memory;
 mod opcode;
+mod registers;
 mod screen;
 
 pub fn main() {
