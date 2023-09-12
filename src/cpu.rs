@@ -1,9 +1,9 @@
+use crate::keyboard::Keyboard;
 use crate::memory::{Memory, MemoryError};
 use crate::opcode::Opcode;
 
 pub const NUM_REGISTERS: usize = 16;
 pub const STACK_SIZE: usize = 16;
-pub const NUM_KEYS: usize = 16;
 
 pub const SCREEN_WIDTH: usize = 64;
 pub const SCREEN_HEIGHT: usize = 32;
@@ -26,7 +26,7 @@ pub struct Cpu {
 
     pub graphics: [u8; SCREEN_SIZE],
 
-    keys: [u8; NUM_KEYS],
+    keyboard_state: Keyboard,
 }
 
 impl Cpu {
@@ -42,7 +42,7 @@ impl Cpu {
             stack: [0; STACK_SIZE],
             stack_pointer: 0,
             graphics: [0; SCREEN_SIZE],
-            keys: [0; NUM_KEYS],
+            keyboard_state: Keyboard::new(),
         };
 
         chip
@@ -195,13 +195,11 @@ impl Cpu {
                 self.increment_program_counter(1);
             }
             Opcode::SkipIfKeyPressed { vx } => {
-                self.increment_program_counter(
-                    1 + (self.keys[self.registers[vx as usize] as usize] == 1) as u16,
-                );
+                self.increment_program_counter(1 + (self.keyboard_state.is_key_pressed(vx)) as u16);
             }
             Opcode::SkipIfKeyNotPressed { vx } => {
                 self.increment_program_counter(
-                    1 + (self.keys[self.registers[vx as usize] as usize] != 1) as u16,
+                    1 + (!self.keyboard_state.is_key_pressed(vx)) as u16,
                 );
             }
             Opcode::SetVxToDelayTimer { vx } => {
@@ -209,14 +207,12 @@ impl Cpu {
                 self.increment_program_counter(1);
             }
             Opcode::WaitForKeyPress { vx } => {
-                let key_pressed = self.keys.iter().position(|&x| x == 1);
+                let pressed_key = self.keyboard_state.get_pressed_key();
 
-                self.registers[vx as usize] = match key_pressed {
-                    Some(key) => key as u8,
-                    None => return Ok(()),
-                };
-
-                self.increment_program_counter(1);
+                if let Some(key) = pressed_key {
+                    self.registers[vx as usize] = key;
+                    self.increment_program_counter(1);
+                }
             }
             Opcode::SetDelayTimerToVx { vx } => {
                 self.delay_timer = self.registers[vx as usize];

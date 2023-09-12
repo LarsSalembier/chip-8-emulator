@@ -1,6 +1,7 @@
 extern crate sdl2;
 
 mod cpu;
+mod keyboard;
 mod memory;
 mod opcode;
 
