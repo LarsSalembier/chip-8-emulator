@@ -1,13 +1,10 @@
 use crate::keyboard::Keyboard;
 use crate::memory::{Memory, MemoryError};
 use crate::opcode::Opcode;
+use crate::screen::Screen;
 
 pub const NUM_REGISTERS: usize = 16;
 pub const STACK_SIZE: usize = 16;
-
-pub const SCREEN_WIDTH: usize = 64;
-pub const SCREEN_HEIGHT: usize = 32;
-pub const SCREEN_SIZE: usize = SCREEN_WIDTH * SCREEN_HEIGHT;
 
 pub const PROGRAM_START: u16 = 0x200;
 
@@ -24,7 +21,7 @@ pub struct Cpu {
     stack: [u16; STACK_SIZE],
     stack_pointer: u16,
 
-    pub graphics: [u8; SCREEN_SIZE],
+    pub screen: Screen,
 
     keyboard_state: Keyboard,
 }
@@ -41,7 +38,7 @@ impl Cpu {
             sound_timer: 0,
             stack: [0; STACK_SIZE],
             stack_pointer: 0,
-            graphics: [0; SCREEN_SIZE],
+            screen: Screen::new(),
             keyboard_state: Keyboard::new(),
         };
 
@@ -68,9 +65,7 @@ impl Cpu {
 
         match decoded_opcode {
             Opcode::ClearScreen => {
-                for i in 0..self.graphics.len() {
-                    self.graphics[i] = 0;
-                }
+                self.screen.clear();
                 self.increment_program_counter(1);
             }
             Opcode::ReturnFromSubroutine => {
@@ -173,24 +168,9 @@ impl Cpu {
                 let y = self.registers[vy as usize] as usize;
 
                 self.registers[0xF] = 0;
+                let sprite = self.memory.get_bytes(self.index, n as u16)?;
 
-                for row in 0..n {
-                    let sprite_byte = self.memory.get_byte(self.index + row as u16)?;
-
-                    for col in 0..8 {
-                        let sprite_pixel = sprite_byte & (0x80 >> col) != 0;
-                        let screen_pixel =
-                            &mut self.graphics[(x + col + ((y + row as usize) * 64)) % 2048];
-
-                        if sprite_pixel {
-                            if *screen_pixel == 1 {
-                                self.registers[0xF] = 1;
-                            }
-
-                            *screen_pixel ^= 1;
-                        }
-                    }
-                }
+                self.registers[0xF] = self.screen.draw(x, y, &sprite) as u8;
 
                 self.increment_program_counter(1);
             }
