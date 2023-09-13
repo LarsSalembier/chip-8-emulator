@@ -90,7 +90,7 @@ pub enum Opcode {
         register: u8,
     },
     WaitForKeyPress {
-        key: u8,
+        register: u8,
     },
     SetDelayTimerToRegister {
         register: u8,
@@ -221,7 +221,7 @@ impl Opcode {
                     register: ((opcode & 0x0F00) >> 8) as u8,
                 }),
                 0x000A => Some(Opcode::WaitForKeyPress {
-                    key: ((opcode & 0x0F00) >> 8) as u8,
+                    register: ((opcode & 0x0F00) >> 8) as u8,
                 }),
                 0x0015 => Some(Opcode::SetDelayTimerToRegister {
                     register: ((opcode & 0x0F00) >> 8) as u8,

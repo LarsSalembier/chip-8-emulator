@@ -1,4 +1,4 @@
-use crate::keyboard::Keyboard;
+use crate::keyboard::{Keyboard, KeyboardError};
 use crate::memory::{Memory, MemoryError};
 use crate::opcode::Opcode;
 use crate::registers::Registers;
@@ -23,6 +23,24 @@ pub struct Cpu {
     pub screen: Screen,
 
     keyboard_state: Keyboard,
+}
+
+#[derive(Debug)]
+pub enum CpuError {
+    MemoryError(MemoryError),
+    KeyboardError(KeyboardError),
+}
+
+impl From<MemoryError> for CpuError {
+    fn from(error: MemoryError) -> Self {
+        CpuError::MemoryError(error)
+    }
+}
+
+impl From<KeyboardError> for CpuError {
+    fn from(error: KeyboardError) -> Self {
+        CpuError::KeyboardError(error)
+    }
 }
 
 impl Cpu {
@@ -54,7 +72,7 @@ impl Cpu {
         Ok((byte1 as u16) << 8 | (byte2 as u16))
     }
 
-    pub fn emulate_cycle(&mut self) -> Result<(), MemoryError> {
+    pub fn emulate_cycle(&mut self) -> Result<(), CpuError> {
         self.opcode = self.fetch_opcode()?;
 
         let decoded_opcode = Opcode::decode(self.opcode).unwrap_or_else(|| {
@@ -217,14 +235,14 @@ impl Cpu {
                 self.increment_program_counter(1);
             }
             Opcode::SkipIfKeyPressed { key } => {
-                self.increment_program_counter(
-                    1 + (self.keyboard_state.is_key_pressed(key)) as u16,
-                );
+                let is_pressed = self.keyboard_state.is_key_pressed(key)?;
+
+                self.increment_program_counter(1 + is_pressed as u16);
             }
             Opcode::SkipIfKeyNotPressed { key } => {
-                self.increment_program_counter(
-                    1 + (!self.keyboard_state.is_key_pressed(key)) as u16,
-                );
+                let is_pressed = self.keyboard_state.is_key_pressed(key)?;
+
+                self.increment_program_counter(1 + (!is_pressed) as u16);
             }
             Opcode::SetRegisterToDelayTimer { register } => {
                 self.registers
@@ -232,11 +250,11 @@ impl Cpu {
 
                 self.increment_program_counter(1);
             }
-            Opcode::WaitForKeyPress { key } => {
+            Opcode::WaitForKeyPress { register } => {
                 let pressed_key = self.keyboard_state.get_pressed_key();
 
-                if let Some(key_) = pressed_key {
-                    self.registers.write(key as usize, key_);
+                if let Some(key) = pressed_key {
+                    self.registers.write(register as usize, key);
                     self.increment_program_counter(1);
                 }
             }

@@ -21,6 +21,13 @@ const CHIP8_FONTSET: [u8; 80] = [
 #[derive(Debug)]
 pub enum MemoryError {
     OutOfBounds(u16),
+    IoError(std::io::Error),
+}
+
+impl From<std::io::Error> for MemoryError {
+    fn from(error: std::io::Error) -> Self {
+        MemoryError::IoError(error)
+    }
 }
 
 pub struct Memory {
@@ -43,11 +50,10 @@ impl Memory {
     }
 
     pub fn get_byte(&self, address: u16) -> Result<u8, MemoryError> {
-        if address as usize >= MEMORY_SIZE {
-            return Err(MemoryError::OutOfBounds(address));
-        }
-
-        Ok(self.data[address as usize])
+        self.data
+            .get(address as usize)
+            .cloned()
+            .ok_or(MemoryError::OutOfBounds(address))
     }
 
     pub fn get_bytes(&self, address: u16, amount: u16) -> Result<Vec<u8>, MemoryError> {
@@ -55,32 +61,26 @@ impl Memory {
             return Err(MemoryError::OutOfBounds(address));
         }
 
-        let mut bytes = Vec::new();
-
-        for i in 0..amount {
-            bytes.push(self.get_byte(address + i)?);
-        }
-
-        Ok(bytes)
+        Ok(self.data[address as usize..address as usize + amount as usize].to_vec())
     }
 
     pub fn set_byte(&mut self, address: u16, byte: u8) -> Result<(), MemoryError> {
-        if address as usize >= MEMORY_SIZE {
-            return Err(MemoryError::OutOfBounds(address));
+        match self.data.get_mut(address as usize) {
+            Some(data_byte) => {
+                *data_byte = byte;
+                Ok(())
+            }
+            None => Err(MemoryError::OutOfBounds(address)),
         }
-
-        self.data[address as usize] = byte;
-
-        Ok(())
     }
 
     pub fn set_bytes(&mut self, address: u16, bytes: &[u8]) -> Result<(), MemoryError> {
-        if address as usize + bytes.len() >= MEMORY_SIZE {
+        if address as usize + bytes.len() > MEMORY_SIZE {
             return Err(MemoryError::OutOfBounds(address));
         }
 
-        for (i, byte) in bytes.iter().enumerate() {
-            self.set_byte(address + i as u16, *byte)?;
+        for (i, &byte) in bytes.iter().enumerate() {
+            self.set_byte(address + i as u16, byte)?;
         }
 
         Ok(())
@@ -91,10 +91,6 @@ impl Memory {
         address: u16,
         decimal: u8,
     ) -> Result<(), MemoryError> {
-        if address as usize + 2 >= MEMORY_SIZE {
-            return Err(MemoryError::OutOfBounds(address));
-        }
-
         let hundreds = decimal / 100;
         let tens = (decimal % 100) / 10;
         let ones = decimal % 10;
@@ -117,7 +113,7 @@ impl Memory {
     }
 
     pub fn load_rom_from_file(&mut self, filename: &str) -> Result<(), MemoryError> {
-        let rom = std::fs::read(filename).expect("Failed to read ROM file");
+        let rom = std::fs::read(filename)?;
 
         self.load_rom(&rom)?;
 
