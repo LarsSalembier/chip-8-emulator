@@ -1,7 +1,7 @@
 use crate::keyboard::{Keyboard, KeyboardError};
 use crate::memory::{Memory, MemoryError};
 use crate::opcode::Opcode;
-use crate::registers::Registers;
+use crate::registers::{RegisterError, Registers};
 use crate::screen::Screen;
 use crate::stack::Stack;
 use crate::timers::{DelayTimer, SoundTimer, Timer};
@@ -29,6 +29,7 @@ pub struct Cpu {
 pub enum CpuError {
     MemoryError(MemoryError),
     KeyboardError(KeyboardError),
+    RegisterError(RegisterError),
 }
 
 impl From<MemoryError> for CpuError {
@@ -40,6 +41,12 @@ impl From<MemoryError> for CpuError {
 impl From<KeyboardError> for CpuError {
     fn from(error: KeyboardError) -> Self {
         CpuError::KeyboardError(error)
+    }
+}
+
+impl From<RegisterError> for CpuError {
+    fn from(error: RegisterError) -> Self {
+        CpuError::RegisterError(error)
     }
 }
 
@@ -99,12 +106,12 @@ impl Cpu {
                 self.program_counter = address;
             }
             Opcode::SkipIfEqual { register, byte } => {
-                let x = self.registers.read(register as usize);
+                let x = self.registers.read(register)?;
 
                 self.increment_program_counter(1 + (x == byte) as u16);
             }
             Opcode::SkipIfNotEqual { register, byte } => {
-                let x = self.registers.read(register as usize);
+                let x = self.registers.read(register)?;
 
                 self.increment_program_counter(1 + (x != byte) as u16);
             }
@@ -112,18 +119,18 @@ impl Cpu {
                 register1,
                 register2,
             } => {
-                let x = self.registers.read(register1 as usize);
-                let y = self.registers.read(register2 as usize);
+                let x = self.registers.read(register1)?;
+                let y = self.registers.read(register2)?;
 
                 self.increment_program_counter(1 + (x == y) as u16);
             }
             Opcode::SetRegisterToByte { register, byte } => {
-                self.registers.write(register as usize, byte);
+                self.registers.write(register, byte)?;
 
                 self.increment_program_counter(1);
             }
             Opcode::AddByteToRegister { register, byte } => {
-                self.registers.add_byte(register as usize, byte);
+                self.registers.add_byte(register, byte)?;
 
                 self.increment_program_counter(1);
             }
@@ -131,7 +138,7 @@ impl Cpu {
                 register1,
                 register2,
             } => {
-                self.registers.copy(register1 as usize, register2 as usize);
+                self.registers.copy(register1, register2)?;
 
                 self.increment_program_counter(1);
             }
@@ -139,7 +146,7 @@ impl Cpu {
                 register1,
                 register2,
             } => {
-                self.registers.or(register1 as usize, register2 as usize);
+                self.registers.or(register1, register2)?;
 
                 self.increment_program_counter(1);
             }
@@ -147,7 +154,7 @@ impl Cpu {
                 register1,
                 register2,
             } => {
-                self.registers.and(register1 as usize, register2 as usize);
+                self.registers.and(register1, register2)?;
 
                 self.increment_program_counter(1);
             }
@@ -155,7 +162,7 @@ impl Cpu {
                 register1,
                 register2,
             } => {
-                self.registers.xor(register1 as usize, register2 as usize);
+                self.registers.xor(register1, register2)?;
 
                 self.increment_program_counter(1);
             }
@@ -163,8 +170,7 @@ impl Cpu {
                 register1,
                 register2,
             } => {
-                self.registers
-                    .add_with_overflow(register1 as usize, register2 as usize);
+                self.registers.add_with_overflow(register1, register2)?;
 
                 self.increment_program_counter(1);
             }
@@ -173,12 +179,12 @@ impl Cpu {
                 register2,
             } => {
                 self.registers
-                    .subtract_with_overflow(register1 as usize, register2 as usize);
+                    .subtract_with_overflow(register1, register2)?;
 
                 self.increment_program_counter(1);
             }
             Opcode::ShiftRegisterRight { register } => {
-                self.registers.shift_right(register as usize);
+                self.registers.shift_right(register)?;
 
                 self.increment_program_counter(1);
             }
@@ -187,12 +193,12 @@ impl Cpu {
                 register2,
             } => {
                 self.registers
-                    .subtract_with_overflow_reversed(register1 as usize, register2 as usize);
+                    .subtract_with_overflow_reversed(register1, register2)?;
 
                 self.increment_program_counter(1);
             }
             Opcode::ShiftRegisterLeft { register } => {
-                self.registers.shift_left(register as usize);
+                self.registers.shift_left(register)?;
 
                 self.increment_program_counter(1);
             }
@@ -200,8 +206,8 @@ impl Cpu {
                 register1,
                 register2,
             } => {
-                let x = self.registers.read(register1 as usize);
-                let y = self.registers.read(register2 as usize);
+                let x = self.registers.read(register1)?;
+                let y = self.registers.read(register2)?;
 
                 self.increment_program_counter(1 + (x != y) as u16);
             }
@@ -211,11 +217,11 @@ impl Cpu {
                 self.increment_program_counter(1);
             }
             Opcode::JumpToAddressPlusRegister0 { address } => {
-                self.program_counter = address + self.registers.read(0) as u16;
+                self.program_counter = address + self.registers.read(0)? as u16;
             }
             Opcode::SetRegisterToRandAndByte { register, byte } => {
                 self.registers
-                    .write(register as usize, rand::random::<u8>() & byte);
+                    .write(register, rand::random::<u8>() & byte)?;
 
                 self.increment_program_counter(1);
             }
@@ -224,13 +230,13 @@ impl Cpu {
                 register2,
                 size,
             } => {
-                let x = self.registers.read(register1 as usize) as usize;
-                let y = self.registers.read(register2 as usize) as usize;
+                let x = self.registers.read(register1)?;
+                let y = self.registers.read(register2)?;
 
                 let sprite = self.memory.get_bytes(self.index, size as u16)?;
 
                 self.registers
-                    .write(0xF, self.screen.draw(x, y, &sprite) as u8);
+                    .write(0xF, self.screen.draw(x as usize, y as usize, &sprite) as u8)?;
 
                 self.increment_program_counter(1);
             }
@@ -246,7 +252,7 @@ impl Cpu {
             }
             Opcode::SetRegisterToDelayTimer { register } => {
                 self.registers
-                    .write(register as usize, self.delay_timer.get_value());
+                    .write(register, self.delay_timer.get_value())?;
 
                 self.increment_program_counter(1);
             }
@@ -254,40 +260,40 @@ impl Cpu {
                 let pressed_key = self.keyboard_state.get_pressed_key();
 
                 if let Some(key) = pressed_key {
-                    self.registers.write(register as usize, key);
+                    self.registers.write(register, key)?;
                     self.increment_program_counter(1);
                 }
             }
             Opcode::SetDelayTimerToRegister { register } => {
-                let x = self.registers.read(register as usize);
+                let x = self.registers.read(register)?;
 
                 self.delay_timer.set_value(x);
 
                 self.increment_program_counter(1);
             }
             Opcode::SetSoundTimerToRegister { register } => {
-                let x = self.registers.read(register as usize);
+                let x = self.registers.read(register)?;
 
                 self.sound_timer.set_value(x);
 
                 self.increment_program_counter(1);
             }
             Opcode::AddRegisterToIndex { register } => {
-                let x = self.registers.read(register as usize);
+                let x = self.registers.read(register)?;
 
                 self.index += x as u16;
 
                 self.increment_program_counter(1);
             }
             Opcode::SetIndexToSpriteLocation { register } => {
-                let x = self.registers.read(register as usize);
+                let x = self.registers.read(register)?;
 
                 self.index = x as u16 * 5;
 
                 self.increment_program_counter(1);
             }
             Opcode::StoreBCD { register } => {
-                let decimal = self.registers.read(register as usize);
+                let decimal = self.registers.read(register)?;
 
                 self.memory
                     .store_binary_coded_decimal(self.index, decimal)?;
@@ -295,7 +301,7 @@ impl Cpu {
                 self.increment_program_counter(1);
             }
             Opcode::StoreRegisters { last_index } => {
-                let bytes = self.registers.read_multiple(0, last_index as usize + 1);
+                let bytes = self.registers.read_multiple(0, last_index + 1)?;
 
                 self.memory.set_bytes(self.index, bytes)?;
 
@@ -308,7 +314,7 @@ impl Cpu {
                     .memory
                     .get_bytes(self.index, last_memory_address as u16 + 1)?;
 
-                self.registers.write_multiple(0, &bytes);
+                self.registers.write_multiple(0, &bytes)?;
 
                 self.increment_program_counter(1);
             }
